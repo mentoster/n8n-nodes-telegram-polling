@@ -2,6 +2,7 @@
 import { ITriggerFunctions } from 'n8n-core';
 import { IDataObject, INodeType, INodeTypeDescription, ITriggerResponse } from 'n8n-workflow';
 import { ApiResponse, Update } from 'typegram';
+import { matchesRestrictions, parseIdList } from './telegramPollingFilters';
 
 export class TelegramPollingTrigger implements INodeType {
 	description: INodeTypeDescription = {
@@ -140,6 +141,20 @@ export class TelegramPollingTrigger implements INodeType {
 				default: 60,
 				description: 'Timeout (in seconds) for the polling request',
 			},
+			{
+				displayName: 'Restrict to Chat IDs',
+				name: 'restrictChatIds',
+				type: 'string',
+				default: '',
+				description: 'Only allow updates from these chat IDs (comma- or space-separated)',
+			},
+			{
+				displayName: 'Restrict to User IDs',
+				name: 'restrictUserIds',
+				type: 'string',
+				default: '',
+				description: 'Only allow updates from these user IDs (comma- or space-separated)',
+			},
 		],
 	};
 
@@ -148,6 +163,8 @@ export class TelegramPollingTrigger implements INodeType {
 
 		const limit = this.getNodeParameter('limit') as number;
 		const timeout = this.getNodeParameter('timeout') as number;
+		const restrictChatIds = parseIdList(this.getNodeParameter('restrictChatIds') as string);
+		const restrictUserIds = parseIdList(this.getNodeParameter('restrictUserIds') as string);
 
 		let allowedUpdates = this.getNodeParameter('updates') as string[];
 
@@ -191,6 +208,11 @@ export class TelegramPollingTrigger implements INodeType {
 						if (allowedUpdates.length > 0) {
 							updates = updates.filter((update) =>
 								Object.keys(update).some((x) => allowedUpdates.includes(x)),
+							);
+						}
+						if (restrictChatIds.size > 0 || restrictUserIds.size > 0) {
+							updates = updates.filter((update) =>
+								matchesRestrictions(update, restrictChatIds, restrictUserIds),
 							);
 						}
 
