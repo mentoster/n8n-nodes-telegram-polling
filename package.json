@@ -8,14 +8,17 @@
 		"telegram"
 	],
 	"license": "MIT",
-	"homepage": "",
+	"homepage": "https://github.com/mentoster/n8n-nodes-telegram-polling#readme",
 	"author": {
 		"name": "mentoster",
 		"email": ""
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/bergi9/n8n-nodes-telegram-polling.git"
+		"url": "https://github.com/mentoster/n8n-nodes-telegram-polling.git"
+	},
+	"bugs": {
+		"url": "https://github.com/mentoster/n8n-nodes-telegram-polling/issues"
 	},
 	"main": "index.js",
 	"publishConfig": {
