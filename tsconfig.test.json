@@ -1,0 +1,11 @@
+{
+	"extends": "./tsconfig.json",
+	"compilerOptions": {
+		"outDir": "./dist-test",
+		"declaration": false,
+		"sourceMap": false,
+		"removeComments": false,
+		"noEmitOnError": true
+	},
+	"include": ["nodes/telegramPollingFilters.ts", "tests/**/*.ts"]
+}
