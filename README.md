@@ -10,7 +10,8 @@ Telegram trigger for n8n using the Bot API `getUpdates` long polling method (no 
 </div>
 
 > [!NOTE]
-> This is continuous work on a fork. The `package.json` repository metadata currently points to `bergi9/n8n-nodes-telegram-polling`.
+> This is continuous work on a fork of `bergi9/n8n-nodes-telegram-polling`.
+> Repository metadata points to `mentoster/n8n-nodes-telegram-polling`.
 
 ## What it does
 
