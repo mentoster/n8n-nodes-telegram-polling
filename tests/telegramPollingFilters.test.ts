@@ -39,6 +39,48 @@ test('extractChatId extracts from callback_query.message.chat.id', () => {
 	assert.equal(extractChatId(update), '300');
 });
 
+test('extractChatId extracts from edited_message.chat.id', () => {
+	const update = makeUpdate({
+		edited_message: { chat: { id: 101 } },
+	});
+	assert.equal(extractChatId(update), '101');
+});
+
+test('extractChatId extracts from channel_post.chat.id', () => {
+	const update = makeUpdate({
+		channel_post: { chat: { id: 102 } },
+	});
+	assert.equal(extractChatId(update), '102');
+});
+
+test('extractChatId extracts from edited_channel_post.chat.id', () => {
+	const update = makeUpdate({
+		edited_channel_post: { chat: { id: 103 } },
+	});
+	assert.equal(extractChatId(update), '103');
+});
+
+test('extractChatId extracts from chat_member.chat.id', () => {
+	const update = makeUpdate({
+		chat_member: { chat: { id: 104 } },
+	});
+	assert.equal(extractChatId(update), '104');
+});
+
+test('extractChatId extracts from my_chat_member.chat.id', () => {
+	const update = makeUpdate({
+		my_chat_member: { chat: { id: 105 } },
+	});
+	assert.equal(extractChatId(update), '105');
+});
+
+test('extractChatId extracts from chat_join_request.chat.id', () => {
+	const update = makeUpdate({
+		chat_join_request: { chat: { id: 106 } },
+	});
+	assert.equal(extractChatId(update), '106');
+});
+
 test('extractChatId returns null when chat id is missing', () => {
 	assert.equal(extractChatId(makeUpdate({})), null);
 });
@@ -55,6 +97,83 @@ test('extractUserId extracts from poll_answer.user.id', () => {
 		poll_answer: { user: { id: 400 } },
 	});
 	assert.equal(extractUserId(update), '400');
+});
+
+test('extractUserId extracts from edited_message.from.id', () => {
+	const update = makeUpdate({
+		edited_message: { from: { id: 201 } },
+	});
+	assert.equal(extractUserId(update), '201');
+});
+
+test('extractUserId extracts from channel_post.from.id', () => {
+	const update = makeUpdate({
+		channel_post: { from: { id: 202 } },
+	});
+	assert.equal(extractUserId(update), '202');
+});
+
+test('extractUserId extracts from edited_channel_post.from.id', () => {
+	const update = makeUpdate({
+		edited_channel_post: { from: { id: 203 } },
+	});
+	assert.equal(extractUserId(update), '203');
+});
+
+test('extractUserId extracts from callback_query.from.id', () => {
+	const update = makeUpdate({
+		callback_query: { from: { id: 204 } },
+	});
+	assert.equal(extractUserId(update), '204');
+});
+
+test('extractUserId extracts from inline_query.from.id', () => {
+	const update = makeUpdate({
+		inline_query: { from: { id: 205 } },
+	});
+	assert.equal(extractUserId(update), '205');
+});
+
+test('extractUserId extracts from chosen_inline_result.from.id', () => {
+	const update = makeUpdate({
+		chosen_inline_result: { from: { id: 206 } },
+	});
+	assert.equal(extractUserId(update), '206');
+});
+
+test('extractUserId extracts from shipping_query.from.id', () => {
+	const update = makeUpdate({
+		shipping_query: { from: { id: 207 } },
+	});
+	assert.equal(extractUserId(update), '207');
+});
+
+test('extractUserId extracts from pre_checkout_query.from.id', () => {
+	const update = makeUpdate({
+		pre_checkout_query: { from: { id: 208 } },
+	});
+	assert.equal(extractUserId(update), '208');
+});
+
+test('extractUserId extracts from chat_member.from.id', () => {
+	const update = makeUpdate({
+		chat_member: { from: { id: 209 } },
+	});
+	assert.equal(extractUserId(update), '209');
+});
+
+test('extractUserId extracts from my_chat_member.from.id', () => {
+	const update = makeUpdate({
+		my_chat_member: { from: { id: 210 } },
+	});
+	assert.equal(extractUserId(update), '210');
+});
+
+test('extractUserId extracts from chat_join_request.from.id', () => {
+	const update = makeUpdate({
+		chat_join_request: { from: { id: 211 } },
+	});
+	assert.equal(extractUserId(update), '211');
 });
 
 test('extractUserId returns null when user id is missing', () => {

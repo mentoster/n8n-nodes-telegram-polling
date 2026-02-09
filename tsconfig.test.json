@@ -3,9 +3,9 @@
 	"compilerOptions": {
 		"outDir": "./dist-test",
 		"declaration": false,
-		"sourceMap": false,
+		"sourceMap": true,
 		"removeComments": false,
 		"noEmitOnError": true
 	},
-	"include": ["nodes/telegramPollingFilters.ts", "tests/**/*.ts"]
+	"include": ["nodes/**/*.ts", "tests/**/*.ts"]
 }

@@ -4,6 +4,193 @@ import { IDataObject, INodeType, INodeTypeDescription, ITriggerResponse } from '
 import { ApiResponse, Update } from 'typegram';
 import { matchesRestrictions, parseIdList } from './telegramPollingFilters';
 
+export type TelegramGetUpdatesBody = {
+	offset: number;
+	limit: number;
+	timeout: number;
+	allowed_updates: string[];
+};
+
+export type TelegramGetUpdatesFn = (args: {
+	body: TelegramGetUpdatesBody;
+	signal: AbortSignal;
+}) => Promise<ApiResponse<Update[]>>;
+
+export function normalizeAllowedUpdates(allowedUpdates: string[]): string[] {
+	return allowedUpdates.includes('*') ? [] : allowedUpdates;
+}
+
+export function buildGetUpdatesBody(args: {
+	offset: number;
+	limit: number;
+	timeout: number;
+	allowedUpdates: string[];
+}): TelegramGetUpdatesBody {
+	return {
+		offset: args.offset,
+		limit: args.limit,
+		timeout: args.timeout,
+		allowed_updates: args.allowedUpdates,
+	};
+}
+
+export function computeNextOffset(currentOffset: number, updates: Update[]): number {
+	if (updates.length === 0) {
+		return currentOffset;
+	}
+
+	return updates[updates.length - 1].update_id + 1;
+}
+
+export function filterUpdatesForEmit(args: {
+	updates: Update[];
+	allowedUpdates: string[];
+	restrictChatIds: Set<string>;
+	restrictUserIds: Set<string>;
+}): Update[] {
+	let updates = args.updates;
+
+	if (args.allowedUpdates.length > 0) {
+		updates = updates.filter((update) =>
+			Object.keys(update).some((key) => args.allowedUpdates.includes(key)),
+		);
+	}
+
+	if (args.restrictChatIds.size > 0 || args.restrictUserIds.size > 0) {
+		updates = updates.filter((update) =>
+			matchesRestrictions(update, args.restrictChatIds, args.restrictUserIds),
+		);
+	}
+
+	return updates;
+}
+
+function getErrorResponseStatusCode(error: unknown): number | undefined {
+	if (typeof error !== 'object' || error === null) {
+		return undefined;
+	}
+
+	if (!('response' in error)) {
+		return undefined;
+	}
+
+	const response = (error as { response?: unknown }).response;
+	if (typeof response !== 'object' || response === null) {
+		return undefined;
+	}
+
+	if (!('status' in response)) {
+		return undefined;
+	}
+
+	const status = (response as { status?: unknown }).status;
+	return typeof status === 'number' ? status : undefined;
+}
+
+export function isIgnorableTelegram409(error: unknown, isPolling: boolean): boolean {
+	return !isPolling && getErrorResponseStatusCode(error) === 409;
+}
+
+export async function pollOnce(args: {
+	getUpdates: TelegramGetUpdatesFn;
+	offset: number;
+	limit: number;
+	timeout: number;
+	allowedUpdates: string[];
+	restrictChatIds: Set<string>;
+	restrictUserIds: Set<string>;
+	signal: AbortSignal;
+}): Promise<{
+	nextOffset: number;
+	updatesToEmit: Update[];
+	requestedBody: TelegramGetUpdatesBody;
+}> {
+	const requestedBody = buildGetUpdatesBody({
+		offset: args.offset,
+		limit: args.limit,
+		timeout: args.timeout,
+		allowedUpdates: args.allowedUpdates,
+	});
+
+	const response = await args.getUpdates({ body: requestedBody, signal: args.signal });
+
+	if (!response.ok || !response.result) {
+		return {
+			nextOffset: args.offset,
+			updatesToEmit: [],
+			requestedBody,
+		};
+	}
+
+	const updates = response.result;
+	const nextOffset = computeNextOffset(args.offset, updates);
+
+	const updatesToEmit =
+		updates.length === 0
+			? []
+			: filterUpdatesForEmit({
+					updates,
+					allowedUpdates: args.allowedUpdates,
+					restrictChatIds: args.restrictChatIds,
+					restrictUserIds: args.restrictUserIds,
+			  });
+
+	return {
+		nextOffset,
+		updatesToEmit,
+		requestedBody,
+	};
+}
+
+export async function runPollingLoop(args: {
+	getUpdates: TelegramGetUpdatesFn;
+	emit: (updates: Update[]) => void;
+	limit: number;
+	timeout: number;
+	allowedUpdates: string[];
+	restrictChatIds: Set<string>;
+	restrictUserIds: Set<string>;
+	signal: AbortSignal;
+	isPolling: () => boolean;
+	maxIterations?: number;
+}): Promise<void> {
+	let offset = 0;
+	let iterations = 0;
+
+	while (args.isPolling()) {
+		if (args.maxIterations !== undefined && iterations >= args.maxIterations) {
+			return;
+		}
+
+		iterations++;
+
+		try {
+			const result = await pollOnce({
+				getUpdates: args.getUpdates,
+				offset,
+				limit: args.limit,
+				timeout: args.timeout,
+				allowedUpdates: args.allowedUpdates,
+				restrictChatIds: args.restrictChatIds,
+				restrictUserIds: args.restrictUserIds,
+				signal: args.signal,
+			});
+
+			offset = result.nextOffset;
+			if (result.updatesToEmit.length > 0) {
+				args.emit(result.updatesToEmit);
+			}
+		} catch (error) {
+			if (isIgnorableTelegram409(error, args.isPolling())) {
+				console.debug('error 409, ignoring because execution is on final cleanup...');
+				continue;
+			}
+
+			throw error;
+		}
+	}
+}
+
 export class TelegramPollingTrigger implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Telegram Trigger (long polling) Trigger',
@@ -166,77 +353,37 @@ export class TelegramPollingTrigger implements INodeType {
 		const restrictChatIds = parseIdList(this.getNodeParameter('restrictChatIds') as string);
 		const restrictUserIds = parseIdList(this.getNodeParameter('restrictUserIds') as string);
 
-		let allowedUpdates = this.getNodeParameter('updates') as string[];
-
-		if (allowedUpdates.includes('*')) {
-			allowedUpdates = [] as string[];
-		}
+		const allowedUpdates = normalizeAllowedUpdates(this.getNodeParameter('updates') as string[]);
 
 		let isPolling = true;
-
 		const abortController = new AbortController();
 
-		const startPolling = async () => {
-			let offset = 0;
+		const getUpdates: TelegramGetUpdatesFn = async ({ body, signal }) =>
+			(await this.helpers.request({
+				method: 'post',
+				uri: `https://api.telegram.org/bot${credentials.accessToken}/getUpdates`,
+				body,
+				json: true,
+				timeout: 0,
+				// dows this work? maybe it isn't passed to Axtios, there's a trnslation step made by N8N in the middle
+				signal,
+			})) as ApiResponse<Update[]>;
 
-			while (isPolling) {
-				// try-catch to handle 409s that on >v1.0 bring down the entire instance
-				try {
-					const response = (await this.helpers.request({
-						method: 'post',
-						uri: `https://api.telegram.org/bot${credentials.accessToken}/getUpdates`,
-						body: {
-							offset,
-							limit,
-							timeout,
-							allowed_updates: allowedUpdates,
-						},
-						json: true,
-						timeout: 0,
-						// dows this work? maybe it isn't passed to Axtios, there's a trnslation step made by N8N in the middle
-						signal: abortController.signal,
-					})) as ApiResponse<Update[]>;
-
-					if (!response.ok || !response.result) {
-						continue;
-					}
-
-					let updates = response.result;
-					if (updates.length > 0) {
-						offset = updates[updates.length - 1].update_id + 1;
-
-						if (allowedUpdates.length > 0) {
-							updates = updates.filter((update) =>
-								Object.keys(update).some((x) => allowedUpdates.includes(x)),
-							);
-						}
-						if (restrictChatIds.size > 0 || restrictUserIds.size > 0) {
-							updates = updates.filter((update) =>
-								matchesRestrictions(update, restrictChatIds, restrictUserIds),
-							);
-						}
-
-						this.emit([updates.map((update) => ({ json: update as unknown as IDataObject }))]);
-					}
-				} catch (error) {
-					// 409s sometimes happen when saving changes, b/c that disables+reenables the WF
-					// In N8N >1.0.0 or if using execution_mode=main, that brings down the entire N8N instance
-					// so we need to ignore those errors
-					// To prevent other cases of 409s getting eaten, we ONLY ignore 409s where isPolling === false
-					// This means that closeFunction() has been invoked and we're in the middle of cleaning up and exiting
-					if (error.response?.status === 409 && !isPolling) {
-						console.debug('error 409, ignoring because execution is on final cleanup...');
-						continue;
-					}
-
-					// any other errors must be thrown as before, we don't want to
-					// gobble them up
-					throw error;
-				}
-			}
+		const emitUpdates = (updates: Update[]) => {
+			this.emit([updates.map((update) => ({ json: update as unknown as IDataObject }))]);
 		};
 
-		startPolling();
+		runPollingLoop({
+			getUpdates,
+			emit: emitUpdates,
+			limit,
+			timeout,
+			allowedUpdates,
+			restrictChatIds,
+			restrictUserIds,
+			signal: abortController.signal,
+			isPolling: () => isPolling,
+		});
 
 		const closeFunction = async () => {
 			isPolling = false;
