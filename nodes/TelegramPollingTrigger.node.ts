@@ -1,8 +1,147 @@
 /* eslint-disable n8n-nodes-base/node-dirname-against-convention */
-import { ITriggerFunctions } from 'n8n-core';
-import { IDataObject, INodeType, INodeTypeDescription, ITriggerResponse } from 'n8n-workflow';
+import { IDataObject, INodeType, INodeTypeDescription, ITriggerFunctions, ITriggerResponse } from 'n8n-workflow';
 import { ApiResponse, Update } from 'typegram';
 import { matchesRestrictions, parseIdList } from './telegramPollingFilters';
+
+
+const UPDATE_OPTIONS = [
+	{
+		name: '*',
+		value: '*',
+		description: 'All updates',
+	},
+	{
+		name: 'Bot Chat Member Updated',
+		value: 'my_chat_member',
+		description:
+			"Trigger on the bot's chat member status was updated in a chat. For private chats, this update is received only when the bot is blocked or unblocked by the user.",
+	},
+	{
+		name: 'Business Connection',
+		value: 'business_connection',
+		description: 'Trigger on business connection updates for the bot',
+	},
+	{
+		name: 'Business Message',
+		value: 'business_message',
+		description: 'Trigger on new incoming messages from connected business accounts',
+	},
+	{
+		name: 'Callback Query',
+		value: 'callback_query',
+		description: 'Trigger on new incoming callback query',
+	},
+	{
+		name: 'Channel Chat Boost Removed',
+		value: 'removed_chat_boost',
+		description: 'Trigger when a boost is removed from a chat',
+	},
+	{
+		name: 'Channel Chat Boost Updated',
+		value: 'chat_boost',
+		description: 'Trigger when a chat boost is added or changed',
+	},
+	{
+		name: 'Channel Post',
+		value: 'channel_post',
+		description: 'Trigger on new incoming channel post of any kind — text, photo, sticker, etc',
+	},
+	{
+		name: 'Chat Join Request',
+		value: 'chat_join_request',
+		description:
+			'Trigger on a request to join the chat has been sent. The bot must have the can_invite_users administrator right in the chat to receive these updates.',
+	},
+	{
+		name: 'Chosen Inline Result',
+		value: 'chosen_inline_result',
+		description:
+			'Trigger on the result of an inline query that was chosen by a user and sent to their chat partner',
+	},
+	{
+		name: 'Deleted Business Messages',
+		value: 'deleted_business_messages',
+		description: 'Trigger when messages from a connected business account are deleted',
+	},
+	{
+		name: 'Edited Business Message',
+		value: 'edited_business_message',
+		description: 'Trigger on edited messages from connected business accounts',
+	},
+	{
+		name: 'Edited Channel Post',
+		value: 'edited_channel_post',
+		description: 'Trigger on new version of a channel post that is known to the bot and was edited',
+	},
+	{
+		name: 'Edited Message',
+		value: 'edited_message',
+		description: 'Trigger on new version of a message that is known to the bot and was edited',
+	},
+	{
+		name: 'Guest Message',
+		value: 'guest_message',
+		description: 'Trigger on new incoming messages from a connected guest user account',
+	},
+	{
+		name: 'Inline Query',
+		value: 'inline_query',
+		description: 'Trigger on new incoming inline query',
+	},
+	{
+		name: 'Managed Bot Updated',
+		value: 'managed_bot',
+		description: 'Trigger when a bot managed by the current bot is updated',
+	},
+	{
+		name: 'Message',
+		value: 'message',
+		description: 'Trigger on new incoming message of any kind — text, photo, sticker, etc',
+	},
+	{
+		name: 'Message Reaction',
+		value: 'message_reaction',
+		description: 'Trigger when a reaction to a message is changed',
+	},
+	{
+		name: 'Message Reaction Count',
+		value: 'message_reaction_count',
+		description: 'Trigger when message reaction counts are changed',
+	},
+	{
+		name: 'Paid Media Purchased',
+		value: 'purchased_paid_media',
+		description: 'Trigger when a user purchases paid media with a non-empty payload',
+	},
+	{
+		name: 'Poll',
+		value: 'poll',
+		description:
+			'Trigger on new poll state. Bots receive only updates about stopped polls and polls, which are sent by the bot.',
+	},
+	{
+		name: 'Poll Answer',
+		value: 'poll_answer',
+		description:
+			'Trigger on new poll answer. Bots receive only updates about stopped polls and polls, which are sent by the bot.',
+	},
+	{
+		name: 'Pre-Checkout Query',
+		value: 'pre_checkout_query',
+		description: 'Trigger on new incoming pre-checkout query. Contains full information about checkout.',
+	},
+	{
+		name: 'Shipping Query',
+		value: 'shipping_query',
+		description: 'Trigger on new incoming shipping query. Only for invoices with flexible price.',
+	},
+	{
+		name: 'User Chat Member Updated',
+		value: 'chat_member',
+		description:
+			'Trigger on the user chat member status was updated in a chat. The bot must be an administrator in the chat and must explicitly specify “chat_member” in the list of allowed_updates to receive these updates.',
+	},
+];
 
 export type TelegramGetUpdatesBody = {
 	offset: number;
@@ -133,7 +272,7 @@ export async function pollOnce(args: {
 					allowedUpdates: args.allowedUpdates,
 					restrictChatIds: args.restrictChatIds,
 					restrictUserIds: args.restrictUserIds,
-			  });
+				});
 
 	return {
 		nextOffset,
@@ -215,94 +354,7 @@ export class TelegramPollingTrigger implements INodeType {
 				displayName: 'Updates',
 				name: 'updates',
 				type: 'multiOptions',
-				options: [
-					{
-						name: '*',
-						value: '*',
-						description: 'All updates',
-					},
-					{
-						name: 'Bot Chat Member Updated',
-						value: 'my_chat_member',
-						description:
-							"Trigger on the bot's chat member status was updated in a chat. For private chats, this update is received only when the bot is blocked or unblocked by the user.",
-					},
-					{
-						name: 'Callback Query',
-						value: 'callback_query',
-						description: 'Trigger on new incoming callback query',
-					},
-					{
-						name: 'Channel Post',
-						value: 'channel_post',
-						description:
-							'Trigger on new incoming channel post of any kind — text, photo, sticker, etc',
-					},
-					{
-						name: 'Chat Join Request',
-						value: 'chat_join_request',
-						description:
-							'Trigger on a request to join the chat has been sent. The bot must have the can_invite_users administrator right in the chat to receive these updates.',
-					},
-					{
-						name: 'Chosen Inline Result',
-						value: 'chosen_inline_result',
-						description:
-							'Trigger on the result of an inline query that was chosen by a user and sent to their chat partner',
-					},
-					{
-						name: 'Edited Channel Post',
-						value: 'edited_channel_post',
-						description:
-							'Trigger on new version of a channel post that is known to the bot and was edited',
-					},
-					{
-						name: 'Edited Message',
-						value: 'edited_message',
-						description:
-							'Trigger on new version of a channel post that is known to the bot and was edited',
-					},
-					{
-						name: 'Inline Query',
-						value: 'inline_query',
-						description: 'Trigger on new incoming inline query',
-					},
-					{
-						name: 'Message',
-						value: 'message',
-						description: 'Trigger on new incoming message of any kind — text, photo, sticker, etc',
-					},
-					{
-						name: 'Poll',
-						value: 'poll',
-						description:
-							'Trigger on new poll state. Bots receive only updates about stopped polls and polls, which are sent by the bot.',
-					},
-					{
-						name: 'Poll Answer',
-						value: 'poll_answer',
-						description:
-							'Trigger on new poll answer. Bots receive only updates about stopped polls and polls, which are sent by the bot.',
-					},
-					{
-						name: 'Pre-Checkout Query',
-						value: 'pre_checkout_query',
-						description:
-							'Trigger on new incoming pre-checkout query. Contains full information about checkout.',
-					},
-					{
-						name: 'Shipping Query',
-						value: 'shipping_query',
-						description:
-							'Trigger on new incoming shipping query. Only for invoices with flexible price.',
-					},
-					{
-						name: 'User Chat Member Updated',
-						value: 'chat_member',
-						description:
-							'Trigger on the user chat member status was updated in a chat. The bot must be an administrator in the chat and must explicitly specify “chat_member” in the list of allowed_updates to receive these updates.',
-					},
-				],
+				options: UPDATE_OPTIONS,
 				required: true,
 				default: [],
 				description: 'The update types to listen to',
@@ -358,16 +410,18 @@ export class TelegramPollingTrigger implements INodeType {
 		let isPolling = true;
 		const abortController = new AbortController();
 
-		const getUpdates: TelegramGetUpdatesFn = async ({ body, signal }) =>
-			(await this.helpers.request({
-				method: 'post',
+		const getUpdates: TelegramGetUpdatesFn = async ({ body, signal }) => {
+			const requestOptions = {
+				method: 'POST',
 				uri: `https://api.telegram.org/bot${credentials.accessToken}/getUpdates`,
 				body,
 				json: true,
 				timeout: 0,
-				// dows this work? maybe it isn't passed to Axtios, there's a trnslation step made by N8N in the middle
 				signal,
-			})) as ApiResponse<Update[]>;
+			};
+
+			return (await this.helpers.request(requestOptions as Parameters<typeof this.helpers.request>[0])) as ApiResponse<Update[]>;
+		};
 
 		const emitUpdates = (updates: Update[]) => {
 			this.emit([updates.map((update) => ({ json: update as unknown as IDataObject }))]);

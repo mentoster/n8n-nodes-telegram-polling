@@ -180,6 +180,30 @@ test('extractUserId returns null when user id is missing', () => {
 	assert.equal(extractUserId(makeUpdate({})), null);
 });
 
+
+test('extractChatId supports recent Telegram update shapes', () => {
+	assert.equal(extractChatId(makeUpdate({ business_message: { chat: { id: 301 } } })), '301');
+	assert.equal(extractChatId(makeUpdate({ edited_business_message: { chat: { id: 302 } } })), '302');
+	assert.equal(extractChatId(makeUpdate({ deleted_business_messages: { chat: { id: 303 } } })), '303');
+	assert.equal(extractChatId(makeUpdate({ guest_message: { chat: { id: 304 } } })), '304');
+	assert.equal(extractChatId(makeUpdate({ message_reaction: { chat: { id: 305 } } })), '305');
+	assert.equal(extractChatId(makeUpdate({ message_reaction_count: { chat: { id: 306 } } })), '306');
+	assert.equal(extractChatId(makeUpdate({ chat_boost: { chat: { id: 307 } } })), '307');
+	assert.equal(extractChatId(makeUpdate({ removed_chat_boost: { chat: { id: 308 } } })), '308');
+});
+
+test('extractUserId supports recent Telegram update shapes', () => {
+	assert.equal(extractUserId(makeUpdate({ business_message: { from: { id: 401 } } })), '401');
+	assert.equal(extractUserId(makeUpdate({ edited_business_message: { from: { id: 402 } } })), '402');
+	assert.equal(extractUserId(makeUpdate({ guest_message: { from: { id: 403 } } })), '403');
+	assert.equal(extractUserId(makeUpdate({ message_reaction: { from: { id: 404 } } })), '404');
+	assert.equal(extractUserId(makeUpdate({ chat_boost: { boost: { source: { user: { id: 405 } } } } })), '405');
+	assert.equal(extractUserId(makeUpdate({ removed_chat_boost: { source: { user: { id: 406 } } } })), '406');
+	assert.equal(extractUserId(makeUpdate({ business_connection: { user: { id: 407 } } })), '407');
+	assert.equal(extractUserId(makeUpdate({ purchased_paid_media: { from: { id: 408 } } })), '408');
+	assert.equal(extractUserId(makeUpdate({ managed_bot: { bot: { id: 409 } } })), '409');
+});
+
 test('matchesRestrictions returns true when no restrictions configured', () => {
 	assert.equal(matchesRestrictions(makeUpdate({}), new Set(), new Set()), true);
 });

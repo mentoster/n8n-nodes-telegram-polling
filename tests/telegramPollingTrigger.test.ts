@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { ITriggerFunctions } from 'n8n-core';
+import type { ITriggerFunctions } from 'n8n-workflow';
 import type { ApiResponse, Update } from 'typegram';
 
 import {
@@ -374,7 +374,7 @@ test('trigger emits one item per update and uses normalized allowed_updates', as
 				signal: AbortSignal;
 			}) => {
 				requestCalls++;
-				assert.equal(options.method, 'post');
+				assert.equal(options.method, 'POST');
 				assert.equal(options.uri, 'https://api.telegram.org/botTOKEN/getUpdates');
 				assert.deepEqual(options.body.allowed_updates, []);
 
